@@ -391,7 +391,11 @@ impl fmt::Display for SizeLimitViolation {
                 "{field} {} exceeds configured limit {} (record at byte offset {offset})",
                 self.actual, self.limit
             ),
-            None => write!(f, "{field} {} exceeds configured limit {}", self.actual, self.limit),
+            None => write!(
+                f,
+                "{field} {} exceeds configured limit {}",
+                self.actual, self.limit
+            ),
         }
     }
 }
@@ -400,7 +404,9 @@ impl fmt::Display for SizeLimitViolation {
 pub enum MezError {
     Io(io::Error),
     InvalidFormat,
-    CorruptedRecord { offset: u64 },
+    CorruptedRecord {
+        offset: u64,
+    },
     RecordTooLarge(SizeLimitViolation),
     /// The writer is unavailable — never opened for writing (v1), or the
     /// store has moved to `Closed`.
@@ -439,25 +445,43 @@ impl fmt::Display for MezError {
             Self::Io(err) => write!(f, "I/O error: {err}"),
             Self::InvalidFormat => write!(f, "invalid Mezaleth storage format"),
             Self::CorruptedRecord { offset } => {
-                write!(f, "corrupted record at byte offset {offset}: checksum mismatch")
+                write!(
+                    f,
+                    "corrupted record at byte offset {offset}: checksum mismatch"
+                )
             }
             Self::RecordTooLarge(violation) => write!(f, "record too large: {violation}"),
             Self::Closed => write!(f, "storage writer is unavailable (closed)"),
             Self::LegacyReadOnly => {
-                write!(f, "storage file is legacy version 1 and is read-only; compact() to upgrade")
+                write!(
+                    f,
+                    "storage file is legacy version 1 and is read-only; compact() to upgrade"
+                )
             }
             Self::FailedStorage => {
-                write!(f, "storage is in a failed state after a prior I/O error; close and reopen")
+                write!(
+                    f,
+                    "storage is in a failed state after a prior I/O error; close and reopen"
+                )
             }
-            Self::AlreadyOpen => write!(f, "storage file is already open (locked) by another instance"),
+            Self::AlreadyOpen => write!(
+                f,
+                "storage file is already open (locked) by another instance"
+            ),
             Self::NeedsCompaction => {
                 write!(f, "write rejected: would exceed a configured resource limit; compact() or raise the limit")
             }
             Self::CompactionFailedBeforeInstall(err) => {
-                write!(f, "compaction failed before install, original file untouched: {err}")
+                write!(
+                    f,
+                    "compaction failed before install, original file untouched: {err}"
+                )
             }
             Self::CompactionInstalledButIncomplete(err) => {
-                write!(f, "compaction installed the new file but a post-install step failed: {err}")
+                write!(
+                    f,
+                    "compaction installed the new file but a post-install step failed: {err}"
+                )
             }
         }
     }
@@ -505,7 +529,10 @@ pub struct FxHasher {
 impl Default for FxHasher {
     #[inline]
     fn default() -> Self {
-        Self { hash: 0, seed: process_seed() }
+        Self {
+            hash: 0,
+            seed: process_seed(),
+        }
     }
 }
 
@@ -517,7 +544,10 @@ fn process_seed() -> u64 {
         // precomputed collision set across process restarts, not
         // confidentiality against an attacker who can already observe
         // this process's internals.
-        let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos() as u64;
+        let t = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64;
         let pid = std::process::id() as u64;
         let stack_addr = &t as *const _ as u64;
         t.wrapping_mul(0x9E37_79B9_7F4A_7C15)
@@ -592,7 +622,11 @@ mod lock_impl {
         // (compact() replaces the underlying inode of the data file, but
         // never touches the lock file).
         let lock_path = lock_file_path(path);
-        let file = OpenOptions::new().create(true).write(true).truncate(true).open(&lock_path)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&lock_path)?;
 
         // SAFETY: fd is a valid, open file descriptor owned by `file` for
         // the duration of this call; flock does not retain it beyond the
@@ -643,14 +677,18 @@ mod lock_impl {
 
     pub fn try_lock(path: &Path) -> Result<FileLock> {
         let lock_path = lock_file_path(path);
-        let file = OpenOptions::new().create(true).write(true).truncate(true).open(&lock_path)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&lock_path)?;
 
         let mut overlapped = [0u8; 32]; // OVERLAPPED, zero-initialized is valid.
-        // SAFETY: file's handle is valid for the duration of this call;
-        // overlapped is a correctly sized, zero-initialized OVERLAPPED
-        // structure whose address only needs to be valid for this call,
-        // since LOCKFILE_FAIL_IMMEDIATELY makes this a synchronous,
-        // non-queued attempt.
+                                        // SAFETY: file's handle is valid for the duration of this call;
+                                        // overlapped is a correctly sized, zero-initialized OVERLAPPED
+                                        // structure whose address only needs to be valid for this call,
+                                        // since LOCKFILE_FAIL_IMMEDIATELY makes this a synchronous,
+                                        // non-queued attempt.
         let ok = unsafe {
             LockFileEx(
                 file.as_raw_handle() as *mut _,
@@ -729,7 +767,11 @@ impl Mezaleth {
         let path = path.as_ref().to_path_buf();
         let lock = lock_impl::try_lock(&path)?;
 
-        let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(&path)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&path)?;
         file.write_all(MAGIC)?;
         file.write_all(&[CURRENT_VERSION])?;
         file.flush()?;
@@ -760,7 +802,10 @@ impl Mezaleth {
         let path = path.as_ref().to_path_buf();
         let lock = lock_impl::try_lock(&path)?;
 
-        let mut file = OpenOptions::new().create_new(true).write(true).open(&path)?;
+        let mut file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)?;
         file.write_all(MAGIC)?;
         file.write_all(&[CURRENT_VERSION])?;
         file.flush()?;
@@ -814,8 +859,11 @@ impl Mezaleth {
         if version != VERSION_1 && version != VERSION_2 {
             return Err(MezError::InvalidFormat);
         }
-        let format_version =
-            if version == VERSION_1 { StorageVersion::V1Legacy } else { StorageVersion::V2Current };
+        let format_version = if version == VERSION_1 {
+            StorageVersion::V1Legacy
+        } else {
+            StorageVersion::V2Current
+        };
 
         let header_len: u64 = MAGIC.len() as u64 + 1;
         let log_len = file_len.saturating_sub(header_len);
@@ -835,18 +883,34 @@ impl Mezaleth {
             }
             match read_record(&mut reader, version, remaining, &limits)? {
                 RecordRead::Incomplete => break,
-                RecordRead::Corrupted => return Err(MezError::CorruptedRecord { offset: record_start }),
+                RecordRead::Corrupted => {
+                    return Err(MezError::CorruptedRecord {
+                        offset: record_start,
+                    })
+                }
                 RecordRead::TooLarge(mut violation) => {
                     violation.offset = Some(record_start);
                     return Err(MezError::RecordTooLarge(violation));
                 }
-                RecordRead::Ok { consumed, key, value, expires_raw, deleted } => {
-                    offset = offset.checked_add(consumed).ok_or(MezError::InvalidFormat)?;
+                RecordRead::Ok {
+                    consumed,
+                    key,
+                    value,
+                    expires_raw,
+                    deleted,
+                } => {
+                    offset = offset
+                        .checked_add(consumed)
+                        .ok_or(MezError::InvalidFormat)?;
                     if deleted {
                         data.remove(key.as_slice());
                         continue;
                     }
-                    let expires_at = if expires_raw == 0 { None } else { Some(expires_raw) };
+                    let expires_at = if expires_raw == 0 {
+                        None
+                    } else {
+                        Some(expires_raw)
+                    };
                     if expires_at.is_some_and(|e| e <= now) {
                         data.remove(key.as_slice());
                         continue;
@@ -891,7 +955,11 @@ impl Mezaleth {
         // never recomputed by re-summing the whole index.
         let approx_index_bytes = data
             .iter()
-            .map(|(k, e)| (k.len().saturating_add(e.value.len()).saturating_add(APPROX_ENTRY_OVERHEAD)) as u64)
+            .map(|(k, e)| {
+                (k.len()
+                    .saturating_add(e.value.len())
+                    .saturating_add(APPROX_ENTRY_OVERHEAD)) as u64
+            })
             .sum();
 
         Ok(Self {
@@ -1001,10 +1069,16 @@ impl Mezaleth {
         let old_entry_bytes: u64 = self
             .data
             .get(key)
-            .map(|e| (key.len().saturating_add(e.value.len()).saturating_add(APPROX_ENTRY_OVERHEAD)) as u64)
+            .map(|e| {
+                (key.len()
+                    .saturating_add(e.value.len())
+                    .saturating_add(APPROX_ENTRY_OVERHEAD)) as u64
+            })
             .unwrap_or(0);
-        let new_entry_bytes: u64 =
-            (key.len().saturating_add(value.len()).saturating_add(APPROX_ENTRY_OVERHEAD)) as u64;
+        let new_entry_bytes: u64 = (key
+            .len()
+            .saturating_add(value.len())
+            .saturating_add(APPROX_ENTRY_OVERHEAD)) as u64;
 
         self.append_record(key, value, expires_at, false)?;
 
@@ -1013,10 +1087,18 @@ impl Mezaleth {
             entry.value.extend_from_slice(value);
             entry.expires_at = expires_at;
         } else {
-            self.data.insert(key.to_vec(), EntryRec { value: value.to_vec(), expires_at });
+            self.data.insert(
+                key.to_vec(),
+                EntryRec {
+                    value: value.to_vec(),
+                    expires_at,
+                },
+            );
         }
-        self.approx_index_bytes =
-            self.approx_index_bytes.saturating_sub(old_entry_bytes).saturating_add(new_entry_bytes);
+        self.approx_index_bytes = self
+            .approx_index_bytes
+            .saturating_sub(old_entry_bytes)
+            .saturating_add(new_entry_bytes);
 
         Ok(())
     }
@@ -1024,7 +1106,12 @@ impl Mezaleth {
     /// Validate key/value/total-record length against configured
     /// [`Limits`] **as encoded for `version`** — v2's CRC overhead is
     /// included when `version == VERSION_2`.
-    fn check_limits_for_version(&self, key_len: usize, value_len: usize, version: u8) -> Result<()> {
+    fn check_limits_for_version(
+        &self,
+        key_len: usize,
+        value_len: usize,
+        version: u8,
+    ) -> Result<()> {
         if key_len > self.limits.max_key_len as usize {
             return Err(MezError::RecordTooLarge(SizeLimitViolation {
                 kind: LimitKind::KeyLen,
@@ -1057,9 +1144,14 @@ impl Mezaleth {
                 offset: None,
             }));
         }
-        let fixed = if version == VERSION_1 { FIXED_FIELDS_LEN_V1 } else { FIXED_FIELDS_LEN_V2 };
-        let total: Option<u64> =
-            fixed.checked_add(key_len as u64).and_then(|v| v.checked_add(value_len as u64));
+        let fixed = if version == VERSION_1 {
+            FIXED_FIELDS_LEN_V1
+        } else {
+            FIXED_FIELDS_LEN_V2
+        };
+        let total: Option<u64> = fixed
+            .checked_add(key_len as u64)
+            .and_then(|v| v.checked_add(value_len as u64));
         match total {
             None => {
                 return Err(MezError::RecordTooLarge(SizeLimitViolation {
@@ -1099,9 +1191,16 @@ impl Mezaleth {
         }
 
         if let Some(max_bytes) = self.limits.max_index_bytes {
-            let new_entry_bytes = key.len().saturating_add(value.len()).saturating_add(APPROX_ENTRY_OVERHEAD);
+            let new_entry_bytes = key
+                .len()
+                .saturating_add(value.len())
+                .saturating_add(APPROX_ENTRY_OVERHEAD);
             let old_entry_bytes = existing
-                .map(|e| key.len().saturating_add(e.value.len()).saturating_add(APPROX_ENTRY_OVERHEAD))
+                .map(|e| {
+                    key.len()
+                        .saturating_add(e.value.len())
+                        .saturating_add(APPROX_ENTRY_OVERHEAD)
+                })
                 .unwrap_or(0);
             // O(1): uses the incrementally-maintained running total
             // (`approx_index_bytes`) rather than re-summing every entry
@@ -1178,8 +1277,10 @@ impl Mezaleth {
             self.append_record(key, &[], None, true)?;
         }
         if let Some(entry) = self.data.remove(key) {
-            let removed_bytes =
-                (key.len().saturating_add(entry.value.len()).saturating_add(APPROX_ENTRY_OVERHEAD)) as u64;
+            let removed_bytes = (key
+                .len()
+                .saturating_add(entry.value.len())
+                .saturating_add(APPROX_ENTRY_OVERHEAD)) as u64;
             self.approx_index_bytes = self.approx_index_bytes.saturating_sub(removed_bytes);
         }
         Ok(())
@@ -1209,7 +1310,9 @@ impl Mezaleth {
             let keep = entry.expires_at.is_none_or(|e| e > now);
             if !keep {
                 removed_bytes = removed_bytes.saturating_add(
-                    (k.len().saturating_add(entry.value.len()).saturating_add(APPROX_ENTRY_OVERHEAD)) as u64,
+                    (k.len()
+                        .saturating_add(entry.value.len())
+                        .saturating_add(APPROX_ENTRY_OVERHEAD)) as u64,
                 );
             }
             keep
@@ -1229,7 +1332,9 @@ impl Mezaleth {
             self.state = StorageState::Failed;
             return Err(MezError::Io(injected_test_error()));
         }
-        let result = self.writer_mut().and_then(|w| w.flush().map_err(MezError::from));
+        let result = self
+            .writer_mut()
+            .and_then(|w| w.flush().map_err(MezError::from));
         if result.is_err() {
             self.state = StorageState::Failed;
         }
@@ -1244,7 +1349,9 @@ impl Mezaleth {
             self.state = StorageState::Failed;
             return Err(MezError::Io(injected_test_error()));
         }
-        let result = self.writer_mut().and_then(|w| w.get_ref().sync_data().map_err(MezError::from));
+        let result = self
+            .writer_mut()
+            .and_then(|w| w.get_ref().sync_data().map_err(MezError::from));
         if result.is_err() {
             self.state = StorageState::Failed;
         }
@@ -1383,7 +1490,13 @@ impl Mezaleth {
         }
     }
 
-    fn append_record(&mut self, key: &[u8], value: &[u8], expires_at: Option<u64>, deleted: bool) -> Result<()> {
+    fn append_record(
+        &mut self,
+        key: &[u8],
+        value: &[u8],
+        expires_at: Option<u64>,
+        deleted: bool,
+    ) -> Result<()> {
         if self.state == StorageState::Failed {
             return Err(MezError::FailedStorage);
         }
@@ -1393,7 +1506,9 @@ impl Mezaleth {
         encode_record_v2(&mut self.record_buf, key, value, expires_at, deleted)?;
 
         if let Some(max_log) = self.limits.max_log_bytes {
-            let projected = self.approx_log_bytes.saturating_add(self.record_buf.len() as u64);
+            let projected = self
+                .approx_log_bytes
+                .saturating_add(self.record_buf.len() as u64);
             if projected > max_log {
                 return Err(MezError::NeedsCompaction);
             }
@@ -1417,7 +1532,9 @@ impl Mezaleth {
             self.state = StorageState::Failed;
             return Err(MezError::Io(e));
         }
-        self.approx_log_bytes = self.approx_log_bytes.saturating_add(self.record_buf.len() as u64);
+        self.approx_log_bytes = self
+            .approx_log_bytes
+            .saturating_add(self.record_buf.len() as u64);
         Ok(())
     }
 
@@ -1474,8 +1591,14 @@ fn open_append_writer(path: &Path) -> Result<BufWriter<File>> {
 /// caller had to acquire first).
 fn cleanup_orphaned_temp_files(path: &Path) {
     let Some(dir) = path.parent() else { return };
-    let dir = if dir.as_os_str().is_empty() { Path::new(".") } else { dir };
-    let Some(stem) = path.file_name().and_then(|n| n.to_str()) else { return };
+    let dir = if dir.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        dir
+    };
+    let Some(stem) = path.file_name().and_then(|n| n.to_str()) else {
+        return;
+    };
     let prefix = format!("{stem}.tmp-");
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -1501,7 +1624,11 @@ fn crc32_table() -> &'static [u32; 256] {
             let mut c = i;
             let mut k = 0;
             while k < 8 {
-                c = if c & 1 != 0 { 0xEDB8_8320 ^ (c >> 1) } else { c >> 1 };
+                c = if c & 1 != 0 {
+                    0xEDB8_8320 ^ (c >> 1)
+                } else {
+                    c >> 1
+                };
                 k += 1;
             }
             table[i as usize] = c;
@@ -1556,14 +1683,12 @@ fn encode_record_v2(
     let needed: usize = (FIXED_FIELDS_LEN_V2 as usize)
         .checked_add(key.len())
         .and_then(|v| v.checked_add(value.len()))
-        .ok_or_else(|| {
-            MezError::RecordTooLarge(SizeLimitViolation {
-                kind: LimitKind::RecordLen,
-                actual: u64::MAX,
-                limit: u64::MAX,
-                offset: None,
-            })
-        })?;
+        .ok_or(MezError::RecordTooLarge(SizeLimitViolation {
+            kind: LimitKind::RecordLen,
+            actual: u64::MAX,
+            limit: u64::MAX,
+            offset: None,
+        }))?;
     out.reserve(needed);
 
     let mut crc = Crc32::new();
@@ -1587,7 +1712,13 @@ fn encode_record_v2(
 }
 
 enum RecordRead {
-    Ok { consumed: u64, key: Vec<u8>, value: Vec<u8>, expires_raw: u64, deleted: bool },
+    Ok {
+        consumed: u64,
+        key: Vec<u8>,
+        value: Vec<u8>,
+        expires_raw: u64,
+        deleted: bool,
+    },
     /// Stream ended before the record was structurally complete, or a
     /// length claimed more bytes than remain in the file (the two are
     /// indistinguishable from the length alone — see module docs).
@@ -1614,7 +1745,11 @@ fn read_record<R: Read>(
     remaining_in_file: u64,
     limits: &Limits,
 ) -> Result<RecordRead> {
-    let fixed_len: u64 = if version == VERSION_1 { FIXED_FIELDS_LEN_V1 } else { FIXED_FIELDS_LEN_V2 };
+    let fixed_len: u64 = if version == VERSION_1 {
+        FIXED_FIELDS_LEN_V1
+    } else {
+        FIXED_FIELDS_LEN_V2
+    };
     let mut crc = Crc32::new();
 
     let mut key_len_buf = [0u8; 4];
@@ -1638,8 +1773,9 @@ fn read_record<R: Read>(
         Some(v) => v,
         None => return Err(MezError::InvalidFormat),
     };
-    let budget_for_key =
-        remaining_in_file.checked_sub(4).and_then(|r| r.checked_sub(min_tail_after_key));
+    let budget_for_key = remaining_in_file
+        .checked_sub(4)
+        .and_then(|r| r.checked_sub(min_tail_after_key));
     match budget_for_key {
         None => return Ok(RecordRead::Incomplete),
         Some(budget) if key_len_u64 > budget => return Ok(RecordRead::Incomplete),
@@ -1680,8 +1816,9 @@ fn read_record<R: Read>(
         Some(v) => v,
         None => return Err(MezError::InvalidFormat),
     };
-    let budget_for_value =
-        remaining_in_file.checked_sub(consumed_so_far).and_then(|r| r.checked_sub(tail_fixed));
+    let budget_for_value = remaining_in_file
+        .checked_sub(consumed_so_far)
+        .and_then(|r| r.checked_sub(tail_fixed));
     match budget_for_value {
         None => return Ok(RecordRead::Incomplete),
         Some(budget) if value_len_u64 > budget => return Ok(RecordRead::Incomplete),
@@ -1696,8 +1833,9 @@ fn read_record<R: Read>(
         }));
     }
 
-    let total_len: Option<u64> =
-        fixed_len.checked_add(key_len_u64).and_then(|v| v.checked_add(value_len_u64));
+    let total_len: Option<u64> = fixed_len
+        .checked_add(key_len_u64)
+        .and_then(|v| v.checked_add(value_len_u64));
     match total_len {
         None => {
             return Ok(RecordRead::TooLarge(SizeLimitViolation {
@@ -1776,7 +1914,13 @@ fn read_record<R: Read>(
         }
     }
 
-    Ok(RecordRead::Ok { consumed, key, value, expires_raw, deleted })
+    Ok(RecordRead::Ok {
+        consumed,
+        key,
+        value,
+        expires_raw,
+        deleted,
+    })
 }
 
 fn read_exact_or_none<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<Option<()>> {
@@ -1800,7 +1944,11 @@ fn create_unique_temp_file(dest: &Path) -> Result<(PathBuf, File)> {
     let mut last_err = None;
     for attempt in 0..TEMP_FILE_CREATE_ATTEMPTS {
         let candidate = temp_path(dest, attempt);
-        match OpenOptions::new().write(true).create_new(true).open(&candidate) {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
             Ok(file) => return Ok((candidate, file)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
                 last_err = Some(e);
@@ -1810,7 +1958,10 @@ fn create_unique_temp_file(dest: &Path) -> Result<(PathBuf, File)> {
         }
     }
     Err(MezError::Io(last_err.unwrap_or_else(|| {
-        io::Error::new(io::ErrorKind::AlreadyExists, "could not create unique temp file")
+        io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "could not create unique temp file",
+        )
     })))
 }
 
@@ -1858,13 +2009,22 @@ fn gen_nonce() -> u128 {
             return n;
         }
     }
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos()
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos()
 }
 
 fn temp_path(path: &Path, attempt: u32) -> PathBuf {
-    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("mezaleth");
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("mezaleth");
     let nonce = gen_nonce();
-    path.with_file_name(format!("{file_name}.tmp-{}-{nonce}-{attempt}", std::process::id()))
+    path.with_file_name(format!(
+        "{file_name}.tmp-{}-{nonce}-{attempt}",
+        std::process::id()
+    ))
 }
 
 // --------------------------------------------------------------------
@@ -1897,7 +2057,11 @@ fn replace_file_durably(src: &Path, dst: &Path) -> io::Result<()> {
 #[cfg(unix)]
 fn fsync_parent_dir(path: &Path) -> io::Result<()> {
     if let Some(parent) = path.parent() {
-        let parent = if parent.as_os_str().is_empty() { Path::new(".") } else { parent };
+        let parent = if parent.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            parent
+        };
         File::open(parent)?.sync_all()?;
     }
     Ok(())
@@ -1908,19 +2072,30 @@ fn windows_replace_file(src: &Path, dst: &Path) -> io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
 
     unsafe extern "system" {
-        fn MoveFileExW(lpExistingFileName: *const u16, lpNewFileName: *const u16, dwFlags: u32) -> i32;
+        fn MoveFileExW(
+            lpExistingFileName: *const u16,
+            lpNewFileName: *const u16,
+            dwFlags: u32,
+        ) -> i32;
     }
     const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
     const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
 
     fn to_wide(path: &Path) -> Vec<u16> {
-        path.as_os_str().encode_wide().chain(std::iter::once(0)).collect()
+        path.as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
     }
     let src_wide = to_wide(src);
     let dst_wide = to_wide(dst);
     // SAFETY: both buffers are NUL-terminated and outlive this call.
     let ok = unsafe {
-        MoveFileExW(src_wide.as_ptr(), dst_wide.as_ptr(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)
+        MoveFileExW(
+            src_wide.as_ptr(),
+            dst_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
     };
     if ok == 0 {
         Err(io::Error::last_os_error())
@@ -1930,7 +2105,10 @@ fn windows_replace_file(src: &Path, dst: &Path) -> io::Result<()> {
 }
 
 fn now_secs() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 // --------------------------------------------------------------------
@@ -2000,12 +2178,17 @@ pub mod fuzz_support {
         if data.is_empty() {
             return;
         }
-        let version = if data[0] & 1 == 0 { VERSION_1 } else { VERSION_2 };
+        let version = if data[0] & 1 == 0 {
+            VERSION_1
+        } else {
+            VERSION_2
+        };
         let body = &data[1..];
 
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("mezaleth_fuzz_{}_{id}.bin", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("mezaleth_fuzz_{}_{id}.bin", std::process::id()));
 
         let mut bytes = Vec::with_capacity(MAGIC.len() + 1 + body.len());
         bytes.extend_from_slice(MAGIC);
@@ -2038,8 +2221,15 @@ mod tests {
 
     fn tmp_path(name: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
-        path.push(format!("mezaleth_test_{name}_{}_{}.bin", std::process::id(), nonce));
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        path.push(format!(
+            "mezaleth_test_{name}_{}_{}.bin",
+            std::process::id(),
+            nonce
+        ));
         cleanup(&path);
         path
     }
@@ -2136,7 +2326,10 @@ mod tests {
         store.state = StorageState::Failed;
 
         assert!(matches!(store.set("b", "2"), Err(MezError::FailedStorage)));
-        assert!(matches!(store.set_with_ttl("b", "2", 5), Err(MezError::FailedStorage)));
+        assert!(matches!(
+            store.set_with_ttl("b", "2", 5),
+            Err(MezError::FailedStorage)
+        ));
         assert!(matches!(store.remove("a"), Err(MezError::FailedStorage)));
         assert!(matches!(store.compact(), Err(MezError::FailedStorage)));
         cleanup(&path);
@@ -2277,8 +2470,14 @@ mod tests {
         let path = tmp_path("limits");
         let mut store = Mezaleth::create_new_with_limits(&path, Limits::new(4, 4)).unwrap();
         store.set("abcd", "wxyz").unwrap();
-        assert!(matches!(store.set("toolong", "v"), Err(MezError::RecordTooLarge(_))));
-        assert!(matches!(store.set("k", "toolong"), Err(MezError::RecordTooLarge(_))));
+        assert!(matches!(
+            store.set("toolong", "v"),
+            Err(MezError::RecordTooLarge(_))
+        ));
+        assert!(matches!(
+            store.set("k", "toolong"),
+            Err(MezError::RecordTooLarge(_))
+        ));
         cleanup(&path);
     }
 
@@ -2330,7 +2529,10 @@ mod tests {
         store.set("a", "1").unwrap();
         store.set("b", "2").unwrap();
         store.set("a", "11").unwrap(); // overwrite must still be allowed at cap
-        assert!(matches!(store.set("c", "3"), Err(MezError::NeedsCompaction)));
+        assert!(matches!(
+            store.set("c", "3"),
+            Err(MezError::NeedsCompaction)
+        ));
         assert_eq!(store.len(), 2);
         cleanup(&path);
     }
@@ -2366,12 +2568,18 @@ mod tests {
         store.set("c", "3333333333").unwrap();
 
         // A fourth same-sized entry must not fit (3*59=177, +59=236>180).
-        assert!(matches!(store.set("d", "4444444444"), Err(MezError::NeedsCompaction)));
+        assert!(matches!(
+            store.set("d", "4444444444"),
+            Err(MezError::NeedsCompaction)
+        ));
 
         // Overwriting an existing key with a same-sized value must not
         // change the total (old bytes freed == new bytes charged).
         store.set("a", "9999999999").unwrap();
-        assert!(matches!(store.set("d", "4444444444"), Err(MezError::NeedsCompaction)));
+        assert!(matches!(
+            store.set("d", "4444444444"),
+            Err(MezError::NeedsCompaction)
+        ));
 
         // Removing an entry must free its bytes so a new one now fits.
         store.remove("a").unwrap();
@@ -2393,7 +2601,10 @@ mod tests {
         store.set_with_ttl("a", "1111111111", 1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(1100));
 
-        assert!(matches!(store.set("b", "2222222222"), Err(MezError::NeedsCompaction)));
+        assert!(matches!(
+            store.set("b", "2222222222"),
+            Err(MezError::NeedsCompaction)
+        ));
 
         store.purge_expired();
         store.set("b", "2222222222").unwrap();
@@ -2406,7 +2617,10 @@ mod tests {
         let limits = Limits::new(1024, 1024).with_max_log_bytes(64);
         let mut store = Mezaleth::create_new_with_limits(&path, limits).unwrap();
         let before = fs::metadata(&path).unwrap().len();
-        let result = store.set("this-key-is-long-enough", "to overflow the sixty four byte budget");
+        let result = store.set(
+            "this-key-is-long-enough",
+            "to overflow the sixty four byte budget",
+        );
         assert!(matches!(result, Err(MezError::NeedsCompaction)));
         let after = fs::metadata(&path).unwrap().len();
         assert_eq!(before, after);
@@ -2433,7 +2647,10 @@ mod tests {
         bytes.extend_from_slice(&body);
         fs::write(&path, bytes).unwrap();
 
-        assert!(matches!(Mezaleth::open(&path), Err(MezError::InvalidFormat)));
+        assert!(matches!(
+            Mezaleth::open(&path),
+            Err(MezError::InvalidFormat)
+        ));
         cleanup(&path);
     }
 
@@ -2456,7 +2673,10 @@ mod tests {
         bytes.extend_from_slice(&body);
         fs::write(&path, bytes).unwrap();
 
-        assert!(matches!(Mezaleth::open(&path), Err(MezError::InvalidFormat)));
+        assert!(matches!(
+            Mezaleth::open(&path),
+            Err(MezError::InvalidFormat)
+        ));
         cleanup(&path);
     }
 
@@ -2487,7 +2707,10 @@ mod tests {
         let remaining_exact = data.len() as u64;
         let mut reader: &[u8] = &data;
         let result = read_record(&mut reader, VERSION_1, remaining_exact, &limits).unwrap();
-        assert!(matches!(result, RecordRead::Ok { .. }), "exact-fit record must parse successfully");
+        assert!(
+            matches!(result, RecordRead::Ok { .. }),
+            "exact-fit record must parse successfully"
+        );
 
         // One byte short of what the record actually needs: the budget
         // check (or the subsequent short read) must report this as an
@@ -2495,7 +2718,10 @@ mod tests {
         let remaining_short = remaining_exact - 1;
         let mut reader: &[u8] = &data;
         let result = read_record(&mut reader, VERSION_1, remaining_short, &limits).unwrap();
-        assert!(matches!(result, RecordRead::Incomplete), "one-byte-short record must be Incomplete");
+        assert!(
+            matches!(result, RecordRead::Incomplete),
+            "one-byte-short record must be Incomplete"
+        );
     }
 
     #[test]
@@ -2512,7 +2738,10 @@ mod tests {
 
         let store = Mezaleth::open(&path).unwrap();
         assert_eq!(store.get("a"), Some(&b"1"[..]));
-        assert!(!orphan.exists(), "orphaned temp file should be removed on open");
+        assert!(
+            !orphan.exists(),
+            "orphaned temp file should be removed on open"
+        );
         cleanup(&path);
     }
 
@@ -2524,7 +2753,11 @@ mod tests {
 
         TEST_NONCE_OVERRIDE.with(|c| c.set(Some(0xDEAD_BEEF)));
         let first_candidate = temp_path(&path, 0);
-        OpenOptions::new().write(true).create_new(true).open(&first_candidate).unwrap();
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&first_candidate)
+            .unwrap();
 
         store.compact().unwrap();
         TEST_NONCE_OVERRIDE.with(|c| c.set(None));
@@ -2696,7 +2929,8 @@ mod tests {
         let ready_path = path.with_extension("ready");
         let stop_path = path.with_extension("stop");
 
-        let _store = Mezaleth::open_or_create(&path).expect("helper process failed to acquire lock");
+        let _store =
+            Mezaleth::open_or_create(&path).expect("helper process failed to acquire lock");
         fs::write(&ready_path, b"ready").expect("helper process failed to write ready marker");
 
         // Bounded wait for the parent's stop signal, with a safety
@@ -2719,7 +2953,12 @@ mod tests {
 
         let exe = std::env::current_exe().expect("could not resolve current test binary path");
         let mut child = std::process::Command::new(&exe)
-            .args(["tests::lock_helper_hold_lock", "--exact", "--ignored", "--test-threads=1"])
+            .args([
+                "tests::lock_helper_hold_lock",
+                "--exact",
+                "--ignored",
+                "--test-threads=1",
+            ])
             .env("MEZALETH_LOCK_TEST_PATH", &path)
             .spawn()
             .expect("failed to spawn helper process");
@@ -2750,7 +2989,10 @@ mod tests {
         // lock handle is genuinely closed before we verify reopening.
         fs::write(&stop_path, b"stop").unwrap();
         let status = child.wait().expect("failed to wait for helper process");
-        assert!(status.success(), "helper process exited with failure: {status:?}");
+        assert!(
+            status.success(),
+            "helper process exited with failure: {status:?}"
+        );
 
         // Now that the other process is gone, opening must succeed.
         let reopened = Mezaleth::open(&path);
