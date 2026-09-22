@@ -66,9 +66,6 @@ jobs:
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Install musl target
-        run: rustup target add x86_64-unknown-linux-musl
-
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
         with:
@@ -77,12 +74,18 @@ jobs:
       - name: Verify cargo-fuzz
         run: cargo fuzz --version
 
+      - name: Show Rust environment
+        run: |
+          rustc +nightly -vV
+          rustup target list --installed
+          cargo fuzz --version
+
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Build fuzz targets
         working-directory: fuzz
-        run: cargo +nightly fuzz build
+        run: cargo +nightly fuzz build --target x86_64-unknown-linux-gnu
 
 
   # ------------------------------------------------------------
@@ -102,9 +105,6 @@ jobs:
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Install musl target
-        run: rustup target add x86_64-unknown-linux-musl
-
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
         with:
@@ -113,20 +113,26 @@ jobs:
       - name: Verify cargo-fuzz
         run: cargo fuzz --version
 
+      - name: Show Rust environment
+        run: |
+          rustc +nightly -vV
+          rustup target list --installed
+          cargo fuzz --version
+
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Fuzz read_record_v1
         working-directory: fuzz
-        run: cargo +nightly fuzz run read_record_v1 -- -max_total_time=60
+        run: cargo +nightly fuzz run read_record_v1 --target x86_64-unknown-linux-gnu -- -max_total_time=60
 
       - name: Fuzz read_record_v2
         working-directory: fuzz
-        run: cargo +nightly fuzz run read_record_v2 -- -max_total_time=60
+        run: cargo +nightly fuzz run read_record_v2 --target x86_64-unknown-linux-gnu -- -max_total_time=60
 
       - name: Fuzz full_recovery
         working-directory: fuzz
-        run: cargo +nightly fuzz run full_recovery -- -max_total_time=60
+        run: cargo +nightly fuzz run full_recovery --target x86_64-unknown-linux-gnu -- -max_total_time=60
 
 
   # ------------------------------------------------------------
