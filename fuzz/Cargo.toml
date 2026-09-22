@@ -1,0 +1,39 @@
+[package]
+name = "mezaleth-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Adjust the package name below if your Cargo.toml's [package] name
+# differs from "Mezaleth" (see the note in src/lib.rs about the
+# non_snake_case crate-name lint on that name).
+[dependencies.Mezaleth]
+path = ".."
+features = ["fuzzing"]
+
+[[bin]]
+name = "read_record_v1"
+path = "fuzz_targets/read_record_v1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "read_record_v2"
+path = "fuzz_targets/read_record_v2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "full_recovery"
+path = "fuzz_targets/full_recovery.rs"
+test = false
+doc = false
+bench = false

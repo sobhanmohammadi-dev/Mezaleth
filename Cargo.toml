@@ -1,0 +1,22 @@
+[package]
+name = "Mezaleth"
+version = "0.1.0"
+edition = "2021"
+description = "Append-only, exclusively-locked, in-memory-indexed key-value store."
+
+[lib]
+name = "Mezaleth"
+path = "src/lib.rs"
+
+[features]
+# Enables the `fuzz_support` module used by the targets under /fuzz.
+# Not needed for normal builds or `cargo test`.
+fuzzing = []
+
+# NOTE: this file was reconstructed for packaging purposes based on the
+# compiler output seen during development (package name "Mezaleth",
+# edition inferred from the `unsafe extern` FFI blocks in src/lib.rs).
+# If your original project had additional settings here (dependencies,
+# a different edition, profile tweaks), merge those in — this is meant
+# as a ready-to-build starting point, not a guaranteed byte-for-byte
+# match of whatever Cargo.toml you were actually using.
